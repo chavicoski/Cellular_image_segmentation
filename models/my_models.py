@@ -114,5 +114,5 @@ class U_net(nn.Module):
         return nn.BCEWithLogitsLoss()
 
     def get_optimizer(self):
-        #return torch.optim.Adam(self.parameters(), lr=0.001)
-        return torch.optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
+        return torch.optim.Adam(self.parameters(), lr=0.0002)
+        #return torch.optim.SGD(self.parameters(), lr=0.01, momentum=0.9)

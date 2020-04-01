@@ -33,19 +33,19 @@ else:
 # Training parameters #
 #######################
 
-epochs = 50
+epochs = 200
 batch_size = 32
 # Processes for loading data in parallel
-num_workers = 3
+num_workers = 2
 # Enables multi-gpu training if it is possible
 multi_gpu = True
 # Pin memory for extra speed loading batches in GPU
 pin_memory = True
 # Enable tensorboard
-tensorboard = False
+tensorboard = True
 
 # Experiment name
-exp_name = "u-net_SGD"
+exp_name = "u-net_Adam"
 
 ###################
 # Data generators #
@@ -86,6 +86,10 @@ train_losses, train_ious, test_losses, test_ious = [], [], [], []
 # Scheduler for changing the value of the laearning rate
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.1, patience=10, verbose=True)
 
+# Set the tensorboard writer
+if tensorboard:
+    tboard_writer = SummaryWriter(comment=exp_name)
+
 # Prepare multi-gpu training if enabled
 if multi_gpu and n_gpus > 1 :
     print("Preparing multi-gpu training...")
@@ -93,10 +97,6 @@ if multi_gpu and n_gpus > 1 :
 
 # Move the model to the computing devices
 model = model.to(device)
-
-# Set the tensorboard writer
-if tensorboard:
-    tboard_writer = SummaryWriter(comment=exp_name)
 
 # Print training header
 print("\n############################\n"\
@@ -139,6 +139,10 @@ for epoch in range(epochs):
 
     # To separate the epochs outputs  
     stdout.write("\n")
+
+# Close the tensorboard writer
+if tensorboard:
+    tboard_writer.close()
 
 # Plot loss and iou of training epochs
 plot_results(train_losses, train_ious, test_losses, test_ious, save_as=exp_name)
