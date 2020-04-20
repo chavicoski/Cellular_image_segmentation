@@ -142,6 +142,17 @@ def test(test_loader, net, criterion, device, pin_memory):
     return test_loss, test_iou
 
 
+'''
+Auxiliary funtion to make the plots for loss and iou metric from training phase.
+Params:
+    train_losses -> list with the loss value of train split for each epoch
+    train_ious -> list with the iou value for train split for each epoch
+    test_losses -> list with the loss value of test split for each epoch
+    test_ious -> list with the iou value for test split for each epoch
+    loss_title -> String with the title of the losses plot
+    iou_title -> String with the title of the ious plot
+    save_as -> String with the name of the png file to save the plot. Default is set to not save the plot
+'''
 def plot_results(train_losses, train_ious, test_losses, test_ious, loss_title="Loss", iou_title="Intersection Over Union", save_as=""):
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(20,10))
     ax[0].plot(train_losses, "r", label="train")
