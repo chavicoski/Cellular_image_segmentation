@@ -37,14 +37,14 @@ epochs = 200
 batch_size = 32
 
 # Optimizer config
-optimizer = "Adam"  # Options "Adam", "SGD"
-learning_rate = 0.0002
+optimizer_name = "SGD"  # Options "Adam", "SGD"
+learning_rate = 0.001
 
 # Weight initializer of the model 
-initializer = "xavier_normal"  # Options "he_normal", "dirac", "xavier_uniform", "xavier_normal"
+initializer = "he_normal"  # Options "he_normal", "dirac", "xavier_uniform", "xavier_normal"
 
 # Model settings
-use_batchnorm = True
+use_batchnorm = False
 dropout = 0.5  # Dropout before the upsampling part
 
 # Data loader settings
@@ -56,7 +56,7 @@ pin_memory = True  # Pin memory for extra speed loading batches in GPU
 tensorboard = True
 
 # Experiment name for saving logs
-exp_name = f"u-net_{optimizer}-{learning_rate}_{initializer}_{dropout}-dropout"
+exp_name = f"u-net_{optimizer_name}-{learning_rate}_{initializer}_{dropout}-dropout"
 if use_batchnorm: exp_name += "_batchnorm"
 
 ###################
@@ -90,8 +90,8 @@ print(f"Model topology:\n{model}")
 # Get loss function
 criterion = model.get_criterion()
 # Get optimizer 
-optimizer = model.get_optimizer(opt=optimizer, lr=learning_rate)
-print(f"Going to train with {optimizer} with lr={learning_rate}")
+optimizer = model.get_optimizer(opt=optimizer_name, lr=learning_rate)
+print(f"Going to train with {optimizer_name} with lr={learning_rate}")
 
 # Initialization of the variables to store the results
 best_loss = 99999
