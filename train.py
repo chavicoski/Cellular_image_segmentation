@@ -35,17 +35,29 @@ else:
 
 epochs = 200
 batch_size = 32
-# Processes for loading data in parallel
-num_workers = 2
-# Enables multi-gpu training if it is possible
-multi_gpu = True
-# Pin memory for extra speed loading batches in GPU
-pin_memory = True
+
+# Optimizer config
+optimizer = "Adam"  # Options "Adam", "SGD"
+learning_rate = 0.0002
+
+# Weight initializer of the model 
+initializer = "xavier_normal"  # Options "he_normal", "dirac", "xavier_uniform", "xavier_normal"
+
+# Model settings
+use_batchnorm = True
+dropout = 0.5  # Dropout before the upsampling part
+
+# Data loader settings
+num_workers = 2    # Processes for loading data in parallel
+multi_gpu = True   # Enables multi-gpu training if it is possible
+pin_memory = True  # Pin memory for extra speed loading batches in GPU
+
 # Enable tensorboard
 tensorboard = True
 
-# Experiment name
-exp_name = "u-net_Adam"
+# Experiment name for saving logs
+exp_name = f"u-net_{optimizer}-{learning_rate}_{initializer}_{dropout}-dropout"
+if use_batchnorm: exp_name += "_batchnorm"
 
 ###################
 # Data generators #
@@ -65,9 +77,11 @@ dev_datagen = DataLoader(dev_dataset, batch_size=batch_size, shuffle=True, num_w
 ########################
 
 # Build the model
-model = U_net()
+model = U_net(batch_norm=use_batchnorm, dropout=dropout)
+# Initialize the weights
+model.init_weights(initializer)
 # Print model architecture
-#print(model)
+print(f"Model topology:\n{model}")
 
 ##################
 # Training phase #
@@ -76,7 +90,8 @@ model = U_net()
 # Get loss function
 criterion = model.get_criterion()
 # Get optimizer 
-optimizer = model.get_optimizer()
+optimizer = model.get_optimizer(opt=optimizer, lr=learning_rate)
+print(f"Going to train with {optimizer} with lr={learning_rate}")
 
 # Initialization of the variables to store the results
 best_loss = 99999
@@ -84,7 +99,7 @@ best_epoch = -1
 train_losses, train_ious, test_losses, test_ious = [], [], [], []
 
 # Scheduler for changing the value of the laearning rate
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.1, patience=10, verbose=True)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=10, verbose=True)
 
 # Set the tensorboard writer
 if tensorboard:
