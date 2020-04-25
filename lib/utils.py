@@ -165,4 +165,5 @@ def plot_results(train_losses, train_ious, test_losses, test_ious, loss_title="L
     ax[1].title.set_text(iou_title)
     if save_as is not "": 
         plt.savefig("plots/" + save_as + "_trainres.png")
-    plt.show() 
+    else:
+        plt.show() 
