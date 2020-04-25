@@ -14,11 +14,11 @@ from models.my_models import U_net
 if torch.cuda.is_available():
     n_gpus = torch.cuda.device_count()
     if n_gpus > 1:
-        print(f"{n_gpus} GPU's available:")
+        print(f"\n{n_gpus} GPU's available:")
         for gpu_idx in range(n_gpus):
             print(f"\t-At device cuda:{gpu_idx} -> device model = {torch.cuda.get_device_name(gpu_idx)}")
     else:
-        print(f"Cuda available with device {device} -> device model = {torch.cuda.get_device_name(device_slot)}")
+        print(f"\nCuda available with device {device} -> device model = {torch.cuda.get_device_name(device_slot)}")
     
     # Select a GPU
     device_slot = torch.cuda.current_device()
@@ -26,14 +26,14 @@ if torch.cuda.is_available():
 else:
     n_gpus = 0
     device = torch.device("cpu")
-    print(f"Cuda is not available, using {device} instead")
+    print(f"\nCuda is not available, using {device} instead")
  
 
 #######################
 # Training parameters #
 #######################
 
-epochs = 200
+epochs = 1000
 batch_size = 32
 
 # Optimizer config
@@ -44,7 +44,7 @@ learning_rate = 0.001
 initializer = "he_normal"  # Options "he_normal", "dirac", "xavier_uniform", "xavier_normal"
 
 # Model settings
-use_batchnorm = False
+use_batchnorm = True
 dropout = 0.5  # Dropout before the upsampling part
 
 # Data loader settings
@@ -58,6 +58,8 @@ tensorboard = True
 # Experiment name for saving logs
 exp_name = f"u-net_{optimizer_name}-{learning_rate}_{initializer}_{dropout}-dropout"
 if use_batchnorm: exp_name += "_batchnorm"
+
+print(f"\nGoing to run experiment {exp_name}")
 
 ###################
 # Data generators #
@@ -81,7 +83,7 @@ model = U_net(batch_norm=use_batchnorm, dropout=dropout)
 # Initialize the weights
 model.init_weights(initializer)
 # Print model architecture
-print(f"Model topology:\n{model}")
+print(f"\nModel topology:\n{model}")
 
 ##################
 # Training phase #
@@ -91,7 +93,7 @@ print(f"Model topology:\n{model}")
 criterion = model.get_criterion()
 # Get optimizer 
 optimizer = model.get_optimizer(opt=optimizer_name, lr=learning_rate)
-print(f"Going to train with {optimizer_name} with lr={learning_rate}")
+print(f"\nGoing to train with {optimizer_name} with lr={learning_rate}")
 
 # Initialization of the variables to store the results
 best_loss = 99999
@@ -107,7 +109,7 @@ if tensorboard:
 
 # Prepare multi-gpu training if enabled
 if multi_gpu and n_gpus > 1 :
-    print("Preparing multi-gpu training...")
+    print("\nPreparing multi-gpu training...")
     model = nn.DataParallel(model)
 
 # Move the model to the computing devices
