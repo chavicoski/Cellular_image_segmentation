@@ -33,7 +33,7 @@ else:
 # Training parameters #
 #######################
 
-epochs = 1000
+epochs = 300
 batch_size = 32
 
 # Optimizer config
@@ -156,6 +156,15 @@ for epoch in range(epochs):
 
     # To separate the epochs outputs  
     stdout.write("\n")
+
+# Add tensorboard entry with the experiment result
+if tensorboard:
+	tboard_writer.add_hparams({"optimizer": optimizer_name,
+				   "lr": learning_rate,
+				   "initializer": initializer,
+				   "batch_norm": use_batchnorm,
+				   "dropout": dropout},
+				  {"hparam/loss": best_loss, "hparam/iou": test_ious[best_epoch], "hparam/best_epoch": best_epoch})
 
 # Close the tensorboard writer
 if tensorboard:
