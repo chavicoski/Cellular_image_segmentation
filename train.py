@@ -49,6 +49,7 @@ dropout = 0.5  # Dropout before the upsampling part
 
 # Data loader settings
 data_augmentation = True
+make_crops = True  # For making random crops after the data agumentation
 num_workers = 2    # Processes for loading data in parallel
 multi_gpu = True   # Enables multi-gpu training if it is possible
 pin_memory = True  # Pin memory for extra speed loading batches in GPU
@@ -60,6 +61,7 @@ tensorboard = True
 exp_name = f"u-net_{optimizer_name}-{learning_rate}_{initializer}_{dropout}-dropout"
 if use_batchnorm: exp_name += "_batchnorm"
 if data_augmentation: exp_name += "_DA"
+if make_crops: exp_name += "_crops"
 
 print(f"\nGoing to run experiment {exp_name}")
 
@@ -70,7 +72,7 @@ print(f"\nGoing to run experiment {exp_name}")
 # Load dataset info
 data_df = pd.read_csv("../dataset/data_partition.csv")
 # Create train datagen
-train_dataset = Cells_dataset(data_df, "train", data_augmentation=data_augmentation)
+train_dataset = Cells_dataset(data_df, "train", data_augmentation=data_augmentation, make_crops=make_crops)
 train_datagen = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=pin_memory)
 # Create develoment datagen
 dev_dataset = Cells_dataset(data_df, "dev")
@@ -166,7 +168,8 @@ if tensorboard:
                     "initializer": initializer,
                     "batch_norm": use_batchnorm,
                     "dropout": dropout,
-                    "data_augmentation": data_augmentation},
+                    "data_augmentation": data_augmentation,
+                    "crops": make_crops},
                     {"hparam/loss": best_loss, "hparam/iou": test_ious[best_epoch], "hparam/best_epoch": best_epoch})
 
 # Close the tensorboard writer

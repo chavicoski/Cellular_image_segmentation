@@ -17,12 +17,13 @@ class Cells_dataset(torch.utils.data.Dataset):
         partition -> Select the dataset partition of the generator. Can be "train" or "dev"
 	data_augmentation -> Flag to enable data augmentation
     '''
-    def __init__(self, data_df, partition="train", data_augmentation=False):
+    def __init__(self, data_df, partition="train", data_augmentation=False, make_crops=False):
         
         self.partition = partition
         # Store the samples from the selected partition
         self.df = data_df[data_df["Partition"]==partition]
         self.data_augmentation = data_augmentation
+        self.make_crops = make_crops
 
     '''
     Returns the number of samples in the dataset
@@ -52,6 +53,8 @@ class Cells_dataset(torch.utils.data.Dataset):
     '''
     def apply_data_augmentation(self, x_tensor, y_tensor):
 
+        c, h, w = x_tensor.shape
+
         # From pytorch tensor to PIL image (to apply transforms)
         x_image = transformsF.to_pil_image(x_tensor)
         y_image = transformsF.to_pil_image(y_tensor)
@@ -68,13 +71,26 @@ class Cells_dataset(torch.utils.data.Dataset):
 
         # Compute random affine transformation parameters
         rot_angle = uniform(-10, 10)
-        _, h, w = x_tensor.shape
         translate = (randint(0, int(h*0.1)), randint(0, int(w*0.1)))
         scale = uniform(0.9, 1.1)
         shear = uniform(-10, 10)
         # Apply affine transformation
         x_image_trans = transformsF.affine(x_image, rot_angle, translate, scale, shear)
         y_image_trans = transformsF.affine(y_image, rot_angle, translate, scale, shear)
+
+        # Make random crop
+        if self.make_crops:
+            # Coordiantes of the upper left corner of the crop
+            vertical_coord = randint(0, int(h * 0.2))  
+            horizontal_coord = randint(0, int(w * 0.2))  
+            # Size of the crop
+            crop_height = int(h * 0.8)
+            crop_width = int(w * 0.8)
+            # Target size to resize the crop
+            target_size = [h, w]
+            # Make the same crop in the image and the mask
+            x_image_trans = transformsF.resized_crop(x_image_trans, vertical_coord, horizontal_coord, crop_height, crop_width, target_size) 
+            y_image_trans = transformsF.resized_crop(y_image_trans, vertical_coord, horizontal_coord, crop_height, crop_width, target_size) 
 
         # From PIL image to pytorch tensor again
         x_tensor_trans = transformsF.to_tensor(x_image_trans)
@@ -94,7 +110,7 @@ if __name__ == "__main__":
     print("TEST DATA GENERATOR")
 
     data_df = pd.read_csv("../dataset/data_partition.csv")
-    dataset = Cells_dataset(data_df, "train", data_augmentation=True)
+    dataset = Cells_dataset(data_df, "train", data_augmentation=True, make_crops=True)
     dataloader = DataLoader(dataset, batch_size = 8)
     batch = next(iter(dataloader))
      
