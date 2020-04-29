@@ -1,8 +1,49 @@
 from sys import stdout
 from time import time
+import numpy as np
 import torch
 from matplotlib import pyplot as plt
+from skimage.morphology import label
 
+'''
+Returns the rle encoding of the image.
+Params:
+    image -> Numpy array with the image mask. 1 = cell_mask, 0 = backgroud
+
+Source: https://www.kaggle.com/paulorzp/run-length-encode-and-decode
+'''
+def rle_encode(image):
+    pixels = image.flatten()
+    pixels = np.concatenate([[0], pixels, [0]])
+    runs = np.where(pixels[1:] != pixels[:-1])[0] + 1
+    runs[1::2] -= runs[::2]
+    return ' '.join(str(x) for x in runs)
+
+'''
+Returns the decoded numpy array corresponding to the rle encoding.
+Params:
+    mask_rle -> string with the rle encoding
+    shape -> target shape of the decoded numpy array
+
+Source: https://www.kaggle.com/paulorzp/run-length-encode-and-decode
+'''
+def rle_decode(mask_rle, shape):
+    s = mask_rle.split()
+    starts, lengths = [np.asarray(x, dtype=int) for x in (s[0:][::2], s[1:][::2])]
+    starts -= 1
+    ends = starts + lengths
+    img = np.zeros(shape[-2]*shape[-1], dtype=np.uint8)
+    for lo, hi in zip(starts, ends):
+        img[lo:hi] = 1
+    return img.reshape(shape[-2:])
+
+'''
+Returns the rle encoding for each cell in the mask.
+'''
+def get_cells_rle(mask, threshold=0.5):
+    cells_masks = label(mask > threshold) 
+    for i in range(1, cells_masks.max()+1):
+        yield rle_encode(cells_masks==i)
 
 '''
 Metric function to compute "intersection over union".
@@ -167,3 +208,19 @@ def plot_results(train_losses, train_ious, test_losses, test_ious, loss_title="L
         plt.savefig("plots/" + save_as + "_trainres.png")
     else:
         plt.show() 
+
+
+if __name__ == "__main__":
+
+    ##################
+    # Test functions #
+    ##################
+
+    dummy_mask = np.array([[1, 1, 1, 0, 0], [1, 1, 0, 0, 0], [0, 0, 0, 1, 1], [1, 0, 1, 1 ,1], [1, 0, 0, 1, 1]])
+    dummy_mask = dummy_mask.reshape((1,) + dummy_mask.shape)  # Add channel dimension
+    print(f"\nDummy mask orig:\n{dummy_mask}")
+    rles = list(get_cells_rle(dummy_mask))
+    print(f"\nCells rles from dummy mask: {rles}")
+    print(f"\nSingle cells masks reconstruction:")
+    for rle in rles:
+        print(rle_decode(rle, dummy_mask.shape), "\n")

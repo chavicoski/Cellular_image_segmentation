@@ -10,7 +10,10 @@ from lib.data_generators import Cells_dataset
 from lib.utils import *
 from models.my_models import U_net
 
-# Check computing device
+##########################
+# Check computing device #
+##########################
+
 if torch.cuda.is_available():
     n_gpus = torch.cuda.device_count()
     if n_gpus > 1:
