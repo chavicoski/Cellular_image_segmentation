@@ -6,6 +6,12 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+'''
+This script takes the first available partition of the dataset from the stage 1 of the competition
+and makes the train/dev split using a csv and processes all the images and masks to have the desired
+shape and format to train(converts the png files to pytorch tensors).
+'''
+
 # Data paths
 dataset_path = "../dataset"
 train_path = os.path.join(dataset_path, "train")

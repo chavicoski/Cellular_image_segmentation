@@ -1,5 +1,11 @@
 import sys
 import torch
+import pandas as pd
+
+# Check script arguments
+if len(sys.argv) != 2:
+    print(f"Usage: python {sys.argv[0]} <PATH_TO_TRAINED_MODEL>")
+    sys.exit()
 
 ##########################
 # Check computing device #
@@ -27,10 +33,6 @@ else:
 # Test parameters #
 ###################
 
-if len(sys.argv) != 2:
-    print(f"Usage: python {sys.argv[0]} <PATH_TO_TRAINED_MODEL>")
-    sys.exit()
-
 model_path = sys.argv[1]
 
 # Data loader settings
@@ -44,10 +46,10 @@ pin_memory = True  # Pin memory for extra speed loading batches in GPU
 ###################
 
 # Load dataset info
-data_df = pd.read_csv("../dataset/data_partition.csv")
+data_df = pd.read_csv("../dataset/test1_partition.csv")
 # Create develoment datagen
-dev_dataset = Cells_dataset(data_df, "dev")
-dev_datagen = DataLoader(dev_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=pin_memory)
+dev_dataset = Cells_dataset(data_df, "test")
+dev_datagen = DataLoader(dev_dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory)
 
 #############################
 # Load the pretrained model #
