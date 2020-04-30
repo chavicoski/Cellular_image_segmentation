@@ -48,10 +48,10 @@ initializer = "he_normal"  # Options "he_normal", "dirac", "xavier_uniform", "xa
 
 # Model settings
 use_batchnorm = True
-dropout = 0.5  # Dropout before the upsampling part
+dropout = 0.3  # Dropout before the upsampling part
 
 # Data loader settings
-data_augmentation = True
+data_augmentation = False
 make_crops = True  # For making random crops after the data agumentation
 num_workers = 2    # Processes for loading data in parallel
 multi_gpu = True   # Enables multi-gpu training if it is possible
@@ -105,7 +105,7 @@ print(f"\nGoing to train with {optimizer_name} with lr={learning_rate}")
 # Initialization of the variables to store the results
 best_loss = 99999
 best_epoch = -1
-train_losses, train_ious, test_losses, test_ious = [], [], [], []
+train_losses, train_ious, dev_losses, dev_ious = [], [], [], []
 
 # Scheduler for changing the value of the laearning rate
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=10, verbose=True)
@@ -136,29 +136,29 @@ for epoch in range(epochs):
     # Train split
     train_loss, train_iou = train(train_datagen, model, criterion, optimizer, device, pin_memory)
     # Development split 
-    test_loss, test_iou = test(dev_datagen, model, criterion, device, pin_memory)
+    dev_loss, dev_iou = validate(dev_datagen, model, criterion, device, pin_memory)
     # Apply the lr scheduler
-    scheduler.step(test_loss)
+    scheduler.step(dev_loss)
     # Save the results of the epoch
     train_losses.append(train_loss), train_ious.append(train_iou) 
-    test_losses.append(test_loss), test_ious.append(test_iou)
+    dev_losses.append(dev_loss), dev_ious.append(dev_iou)
     # Log in tensorboard 
     if tensorboard:
         # Loss
         tboard_writer.add_scalar("Loss/train", train_loss, epoch)
-        tboard_writer.add_scalar("Loss/test", test_loss, epoch)
+        tboard_writer.add_scalar("Loss/test", dev_loss, epoch)
         # Intersection over union
         tboard_writer.add_scalar("IoU/train", train_iou, epoch)
-        tboard_writer.add_scalar("IoU/test", test_iou, epoch)
+        tboard_writer.add_scalar("IoU/test", dev_iou, epoch)
 
     # If val_loss improves we store the model
-    if test_losses[-1] < best_loss:
+    if dev_losses[-1] < best_loss:
         model_path = f"models/checkpoints/{exp_name}_best"
         print(f"Saving new best model in {model_path}")
         # Save the entire model
         torch.save(model, model_path)
         # Update best model stats
-        best_loss = test_losses[-1]
+        best_loss = dev_losses[-1]
         best_epoch = epoch
 
     # To separate the epochs outputs  
@@ -173,11 +173,11 @@ if tensorboard:
                     "dropout": dropout,
                     "data_augmentation": data_augmentation,
                     "crops": make_crops},
-                    {"hparam/loss": best_loss, "hparam/iou": test_ious[best_epoch], "hparam/best_epoch": best_epoch})
+                    {"hparam/loss": best_loss, "hparam/iou": dev_ious[best_epoch], "hparam/best_epoch": best_epoch})
 
 # Close the tensorboard writer
 if tensorboard:
     tboard_writer.close()
 
 # Plot loss and iou of training epochs
-plot_results(train_losses, train_ious, test_losses, test_ious, save_as=exp_name)
+plot_results(train_losses, train_ious, dev_losses, dev_ious, save_as=exp_name)

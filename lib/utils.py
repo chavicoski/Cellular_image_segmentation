@@ -80,6 +80,7 @@ Params:
     criterion -> pytorch loss function
     optimizer -> pytorch optimizer
     device -> pytorch computing device
+    pin_memory-> flag to enable pined memory to load batches into GPU
 '''
 def train(train_loader, net, criterion, optimizer, device, pin_memory):
     # Set the net in train mode
@@ -135,28 +136,29 @@ def train(train_loader, net, criterion, optimizer, device, pin_memory):
 
 
 '''
-Test function. Computes loss and accuracy for development set.
+Validation function. Computes loss and accuracy for development set.
 Params:
-    test_loader -> pytorch DataLoader for testing data
+    dev_loader -> pytorch DataLoader for development data
     net -> pytorch model
     criterion -> pytorch loss function
     device -> pytorch computing device
+    pin_memory-> flag to enable pined memory to load batches into GPU
 '''
-def test(test_loader, net, criterion, device, pin_memory):
+def validate(dev_loader, net, criterion, device, pin_memory):
     # Set the net in eval mode
     net.eval()
 
     # Initialize stats
-    test_loss = 0   
+    dev_loss = 0   
     iou = 0.0
 
     # Test timer
-    test_timer = time()
+    dev_timer = time()
 
     # Set no_grad to avoid gradient computations
     with torch.no_grad():     
         # Testing loop
-        for batch in test_loader:       
+        for batch in dev_loader:       
             # Get input and target from batch
             data, target = batch["image"], batch["mask"]
             # Move tensors to computing device
@@ -165,22 +167,75 @@ def test(test_loader, net, criterion, device, pin_memory):
             # Compute forward and get output logits
             output = net(data)       
             # Compute loss and accumulate it
-            test_loss += criterion(output, target).item()       
+            dev_loss += criterion(output, target).item()       
             # Compute samples iou
             batch_iou = iou_metric(output, target)
             iou += batch_iou.sum().item()
 
 
     # Compute final loss
-    test_loss /= len(test_loader.dataset)   
+    dev_loss /= len(dev_loader.dataset)   
     # Compute final iou
-    test_iou = iou / len(test_loader.dataset) 
+    dev_iou = iou / len(dev_loader.dataset) 
     # Compute time consumed 
-    test_time = time() - test_timer
-    # Print test log 
-    stdout.write(f'\nTest {test_time:.1f}s: val_loss: {test_loss:.5f} - val_iou: {test_iou:.5f}\n')    
+    dev_time = time() - dev_timer
+    # Print validation log 
+    stdout.write(f'\nValidation {dev_time:.1f}s: val_loss: {dev_loss:.5f} - val_iou: {dev_iou:.5f}\n')    
 
-    return test_loss, test_iou
+    return dev_loss, dev_iou
+
+
+'''
+Test function that computes the score like the competition. It takes the generated masks from our model
+and then resizes them to fit the target shape for each of them (as not all the samples have the same shape).
+Then it computes the average of all the iou scores by changing the threshold of the mask from 0.05 to 0.95 
+with a step of 0.05.
+Params:
+    test_loader -> pytorch DataLoader for test data
+    net -> pytorch model
+    criterion -> pytorch loss function
+    device -> pytorch computing device
+    pin_memory-> flag to enable pined memory to load batches into GPU
+'''
+def run_competition_test(dev_loader, net, criterion, device, pin_memory):
+    # Set the net in eval mode
+    net.eval()
+
+    # Initialize stats
+    dev_loss = 0   
+    iou = 0.0
+
+    # Test timer
+    dev_timer = time()
+
+    # Set no_grad to avoid gradient computations
+    with torch.no_grad():     
+        # Testing loop
+        for batch in dev_loader:       
+            # Get input and target from batch
+            data, target = batch["image"], batch["mask"]
+            # Move tensors to computing device
+            data = data.to(device, non_blocking=pin_memory)
+            target = target.to(device, non_blocking=pin_memory)       
+            # Compute forward and get output logits
+            output = net(data)       
+            # Compute loss and accumulate it
+            dev_loss += criterion(output, target).item()       
+            # Compute samples iou
+            batch_iou = iou_metric(output, target)
+            iou += batch_iou.sum().item()
+
+
+    # Compute final loss
+    dev_loss /= len(dev_loader.dataset)   
+    # Compute final iou
+    dev_iou = iou / len(dev_loader.dataset) 
+    # Compute time consumed 
+    dev_time = time() - dev_timer
+    # Print validation log 
+    stdout.write(f'\nValidation {dev_time:.1f}s: val_loss: {dev_loss:.5f} - val_iou: {dev_iou:.5f}\n')    
+
+    return dev_loss, dev_iou
 
 
 '''
@@ -188,20 +243,20 @@ Auxiliary funtion to make the plots for loss and iou metric from training phase.
 Params:
     train_losses -> list with the loss value of train split for each epoch
     train_ious -> list with the iou value for train split for each epoch
-    test_losses -> list with the loss value of test split for each epoch
-    test_ious -> list with the iou value for test split for each epoch
+    val_losses -> list with the loss value of development split for each epoch
+    val_ious -> list with the iou value for development split for each epoch
     loss_title -> String with the title of the losses plot
     iou_title -> String with the title of the ious plot
     save_as -> String with the name of the png file to save the plot. Default is set to not save the plot
 '''
-def plot_results(train_losses, train_ious, test_losses, test_ious, loss_title="Loss", iou_title="Intersection Over Union", save_as=""):
+def plot_results(train_losses, train_ious, dev_losses, dev_ious, loss_title="Loss", iou_title="Intersection Over Union", save_as=""):
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(20,10))
     ax[0].plot(train_losses, "r", label="train")
-    ax[0].plot(test_losses, "g", label="test")
+    ax[0].plot(dev_losses, "g", label="dev")
     ax[0].legend()
     ax[0].title.set_text(loss_title)
     ax[1].plot(train_ious, "r", label="train")
-    ax[1].plot(test_ious, "g", label="test")
+    ax[1].plot(dev_ious, "g", label="dev")
     ax[1].legend()
     ax[1].title.set_text(iou_title)
     if save_as is not "": 
