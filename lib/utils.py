@@ -73,6 +73,29 @@ def iou_metric(logits, target, threshold=0.5):
 
 
 '''
+Computes the average of applying the iou with diferent mask thresholds. 
+From 0.05 to 0.95 with a step of 0.05
+Params:
+    logits -> Tensor output of the net. Shape: (batch_size, 1, h, w)
+    target -> Target mask tensor of 0's anb 1's. Shape: (batch_size, 1, h, w)
+'''
+def competition_iou_metric(logits, target):
+    print("competition_iou_metric(): TODO")
+    return 0.5
+
+'''
+Given the predicted masks from the net and the original masks(with different shapes).
+It resizes each predicted mask to the shape of his target mask.
+Params:
+    out_masks -> pytorch tensor with the predicted masks
+    target -> list with the target masks (with different shapes)
+'''
+def resize_out_masks(out_masks, target):
+    print("resize_out_masks(): TODO")
+    return None
+
+
+'''
 Training loop function
 Params:
     train_loader -> pytorch DataLoader for training data
@@ -152,7 +175,7 @@ def validate(dev_loader, net, criterion, device, pin_memory):
     dev_loss = 0   
     iou = 0.0
 
-    # Test timer
+    # Validation timer
     dev_timer = time()
 
     # Set no_grad to avoid gradient computations
@@ -197,45 +220,41 @@ Params:
     device -> pytorch computing device
     pin_memory-> flag to enable pined memory to load batches into GPU
 '''
-def run_competition_test(dev_loader, net, criterion, device, pin_memory):
+def run_competition_test(test_loader, net, device, pin_memory):
     # Set the net in eval mode
     net.eval()
 
     # Initialize stats
-    dev_loss = 0   
+    test_loss = 0   
     iou = 0.0
 
     # Test timer
-    dev_timer = time()
+    test_timer = time()
 
     # Set no_grad to avoid gradient computations
     with torch.no_grad():     
         # Testing loop
-        for batch in dev_loader:       
+        for batch in test_loader:       
             # Get input and target from batch
             data, target = batch["image"], batch["mask"]
-            # Move tensors to computing device
+            # Move the input tensor to computing device
             data = data.to(device, non_blocking=pin_memory)
-            target = target.to(device, non_blocking=pin_memory)       
             # Compute forward and get output logits
             output = net(data)       
-            # Compute loss and accumulate it
-            dev_loss += criterion(output, target).item()       
+            # Resize the output to compare iou with target mask
+            resized_output = resize_out_masks(output, target)
             # Compute samples iou
-            batch_iou = iou_metric(output, target)
-            iou += batch_iou.sum().item()
+            batch_iou = competition_iou_metric(resized_output, target)
+            iou += batch_iou
 
-
-    # Compute final loss
-    dev_loss /= len(dev_loader.dataset)   
     # Compute final iou
-    dev_iou = iou / len(dev_loader.dataset) 
+    test_iou = iou / len(test_loader.dataset) 
     # Compute time consumed 
-    dev_time = time() - dev_timer
+    test_time = time() - test_timer
     # Print validation log 
-    stdout.write(f'\nValidation {dev_time:.1f}s: val_loss: {dev_loss:.5f} - val_iou: {dev_iou:.5f}\n')    
+    stdout.write(f'\nTest {test_time:.1f}s: averaged_iou_score = {test_iou:.5f}\n')    
 
-    return dev_loss, dev_iou
+    return test_iou
 
 
 '''

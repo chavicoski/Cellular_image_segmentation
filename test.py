@@ -3,6 +3,7 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from lib.data_generators import Cells_dataset
+from lib.utils import run_competition_test
 
 # Check script arguments
 if len(sys.argv) != 2:
@@ -38,7 +39,7 @@ else:
 model_path = sys.argv[1]
 
 # Data loader settings
-batch_size = 32
+batch_size = 1     # THIS MUST BE 1 IN ORDER TO WORK
 num_workers = 2    # Processes for loading data in parallel
 multi_gpu = True   # Enables multi-gpu training if it is possible
 pin_memory = True  # Pin memory for extra speed loading batches in GPU
@@ -49,14 +50,18 @@ pin_memory = True  # Pin memory for extra speed loading batches in GPU
 
 # Load dataset info
 data_df = pd.read_csv("../dataset/test1_partition.csv")
-# Create develoment datagen
-dev_dataset = Cells_dataset(data_df, "test")
-dev_datagen = DataLoader(dev_dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory)
+# Create test datagen
+test_dataset = Cells_dataset(data_df, "test")
+test_datagen = DataLoader(test_dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory)
 
 #############################
 # Load the pretrained model #
 #############################
 
-torch.load(model_path)
+model = torch.load(model_path)
 
+########################
+# Run competition test #
+########################
 
+test_iou = run_competition_test(test_datagen, model, device, pin_memory)
