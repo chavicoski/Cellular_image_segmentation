@@ -77,11 +77,12 @@ class Out_block(nn.Module):
         if out_channels == 1:
             self.act = nn.Sigmoid()
         else:
-            self.act = nn.Softmax(dim=1)
+            self.act = nn.Softmax2d()
 
     def forward(self, x):
         x = self.conv(x)
-        return self.act(x)
+        out = self.act(x)
+        return out
 
 #########
 # U-net #

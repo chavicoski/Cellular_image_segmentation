@@ -40,14 +40,14 @@ epochs = 300
 batch_size = 32
 
 # Optimizer config
-optimizer_name = "Adam"  # Options "Adam", "SGD"
-learning_rate = 0.001
+optimizer_name = "SGD"  # Options "Adam", "SGD"
+learning_rate = 0.01
 
 # Weight initializer of the model 
 initializer = "he_normal"  # Options "he_normal", "dirac", "xavier_uniform", "xavier_normal"
 
 # Model settings
-use_batchnorm = True
+use_batchnorm = False
 dropout = 0.5  # Dropout before the upsampling part
 
 # Data loader settings
