@@ -74,9 +74,14 @@ class Out_block(nn.Module):
         super(Out_block, self).__init__()
         # Create block layers
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+        if out_channels == 1:
+            self.act = nn.Sigmoid()
+        else:
+            self.act = nn.Softmax(dim=1)
 
     def forward(self, x):
-        return self.conv(x)
+        x = self.conv(x)
+        return self.act(x)
 
 #########
 # U-net #

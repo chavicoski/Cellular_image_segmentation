@@ -48,14 +48,14 @@ initializer = "he_normal"  # Options "he_normal", "dirac", "xavier_uniform", "xa
 
 # Model settings
 use_batchnorm = True
-dropout = 0.3  # Dropout before the upsampling part
+dropout = 0.5  # Dropout before the upsampling part
 
 # Data loader settings
 data_augmentation = False
-make_crops = True  # For making random crops after the data agumentation
-num_workers = 2    # Processes for loading data in parallel
-multi_gpu = True   # Enables multi-gpu training if it is possible
-pin_memory = True  # Pin memory for extra speed loading batches in GPU
+make_crops = False  # For making random crops after the data agumentation
+num_workers = 2     # Processes for loading data in parallel
+multi_gpu = True    # Enables multi-gpu training if it is possible
+pin_memory = True   # Pin memory for extra speed loading batches in GPU
 
 # Enable tensorboard
 tensorboard = True

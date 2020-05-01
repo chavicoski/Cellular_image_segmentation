@@ -1,9 +1,27 @@
+import sys
 from sys import stdout
 from time import time
 import numpy as np
 import torch
+from torchvision import transforms
 from matplotlib import pyplot as plt
 from skimage.morphology import label
+from torchvision.utils import make_grid
+from math import ceil
+
+'''
+Creates a png file with a grid showing the images passed as a parameter.
+Params:
+    images -> pytorch tensor with a batch of images
+    save_as -> path of the new png file
+'''
+def save_images_batch(images, save_as=""):
+    images_grid = make_grid(images, nrow=int(ceil(images.shape[0] / 4)))
+    plt.imshow(images_grid.permute(1, 2, 0))
+    if save_as == "":
+        plt.savefig("plots/images_batch.png")
+    else:
+        plt.savefig(save_as)
 
 '''
 Returns the rle encoding of the image.
@@ -80,8 +98,7 @@ Params:
     target -> Target mask tensor of 0's anb 1's. Shape: (batch_size, 1, h, w)
 '''
 def competition_iou_metric(logits, target):
-    print("competition_iou_metric(): TODO")
-    return 0.5
+    return iou_metric(logits, target)
 
 '''
 Given the predicted masks from the net and the original masks(with different shapes).
@@ -90,9 +107,14 @@ Params:
     out_masks -> pytorch tensor with the predicted masks
     target -> list with the target masks (with different shapes)
 '''
-def resize_out_masks(out_masks, target):
-    print("resize_out_masks(): TODO")
-    return None
+def resize_out_masks(out_mask, target):
+    resize_func = transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize(target.shape[-2:]),
+        transforms.ToTensor()
+    ])
+    resized_mask = resize_func(out_mask.view(out_mask.shape[-3:]))
+    return resized_mask.view((1,) + resized_mask.shape)
 
 
 '''
@@ -195,7 +217,6 @@ def validate(dev_loader, net, criterion, device, pin_memory):
             batch_iou = iou_metric(output, target)
             iou += batch_iou.sum().item()
 
-
     # Compute final loss
     dev_loss /= len(dev_loader.dataset)   
     # Compute final iou
@@ -242,10 +263,10 @@ def run_competition_test(test_loader, net, device, pin_memory):
             # Compute forward and get output logits
             output = net(data)       
             # Resize the output to compare iou with target mask
-            resized_output = resize_out_masks(output, target)
+            resized_output = resize_out_masks(output.cpu(), target)
             # Compute samples iou
             batch_iou = competition_iou_metric(resized_output, target)
-            iou += batch_iou
+            iou += batch_iou.sum().item()
 
     # Compute final iou
     test_iou = iou / len(test_loader.dataset) 

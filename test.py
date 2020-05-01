@@ -49,9 +49,9 @@ pin_memory = True  # Pin memory for extra speed loading batches in GPU
 ###################
 
 # Load dataset info
-data_df = pd.read_csv("../dataset/test1_partition.csv")
+data_df = pd.read_csv("../dataset/data_partition.csv")
 # Create test datagen
-test_dataset = Cells_dataset(data_df, "test")
+test_dataset = Cells_dataset(data_df, "dev")
 test_datagen = DataLoader(test_dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory)
 
 #############################
