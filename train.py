@@ -40,19 +40,19 @@ epochs = 300
 batch_size = 32
 
 # Optimizer config
-optimizer_name = "SGD"  # Options "Adam", "SGD"
-learning_rate = 0.01
+optimizer_name = "Adam"  # Options "Adam", "SGD"
+learning_rate = 0.001
 
 # Weight initializer of the model 
 initializer = "he_normal"  # Options "he_normal", "dirac", "xavier_uniform", "xavier_normal"
 
 # Model settings
-use_batchnorm = False
-dropout = 0.5  # Dropout before the upsampling part
+use_batchnorm = True
+dropout = 0.0  # Dropout before the upsampling part
 
 # Data loader settings
-data_augmentation = False
-make_crops = False  # For making random crops after the data agumentation
+data_augmentation = True
+make_crops = True   # For making random crops after the data agumentation
 num_workers = 2     # Processes for loading data in parallel
 multi_gpu = True    # Enables multi-gpu training if it is possible
 pin_memory = True   # Pin memory for extra speed loading batches in GPU

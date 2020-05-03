@@ -92,13 +92,17 @@ def iou_metric(logits, target, threshold=0.5):
 
 '''
 Computes the average of applying the iou with diferent mask thresholds. 
-From 0.05 to 0.95 with a step of 0.05
+From 0.5 to 0.95 with a step of 0.05
 Params:
     logits -> Tensor output of the net. Shape: (batch_size, 1, h, w)
     target -> Target mask tensor of 0's anb 1's. Shape: (batch_size, 1, h, w)
 '''
 def competition_iou_metric(logits, target):
-    return iou_metric(logits, target)
+    ious_sum = 0
+    thresholds = np.arange(0.5, 1, 0.05)
+    for threshold in thresholds:
+        ious_sum += iou_metric(logits, target, threshold)
+    return  ious_sum / len(thresholds) 
 
 '''
 Given the predicted masks from the net and the original masks(with different shapes).
