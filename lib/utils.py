@@ -2,6 +2,7 @@ import sys
 from sys import stdout
 from time import time
 import numpy as np
+from PIL import Image
 import torch
 from torchvision import transforms
 from matplotlib import pyplot as plt
@@ -31,7 +32,7 @@ Params:
 Source: https://www.kaggle.com/paulorzp/run-length-encode-and-decode
 '''
 def rle_encode(image):
-    pixels = image.flatten()
+    pixels = image.T.flatten()
     pixels = np.concatenate([[0], pixels, [0]])
     runs = np.where(pixels[1:] != pixels[:-1])[0] + 1
     runs[1::2] -= runs[::2]
@@ -62,6 +63,18 @@ def get_cells_rle(mask, threshold=0.5):
     cells_masks = label(mask > threshold) 
     for i in range(1, cells_masks.max()+1):
         yield rle_encode(cells_masks==i)
+
+'''
+Loads the image and preprocess it in order to feed it to the network.
+Params:
+    image_path -> path to the image png
+    target_size -> input size of the network (without channel dim)
+'''
+def preprocess_inference(image_path, target_size=(256, 256)):
+    process_img = transforms.Compose([transforms.Resize(target_size, Image.BICUBIC), transforms.ToTensor()])
+    image = Image.open(image_path).convert("RGB")
+    image_tensor = process_img(image)
+    return image_tensor.view((1,) + image_tensor.shape), image.size
 
 '''
 Metric function to compute "intersection over union".
@@ -316,8 +329,8 @@ if __name__ == "__main__":
     ##################
 
     dummy_mask = np.array([[1, 1, 1, 0, 0], [1, 1, 0, 0, 0], [0, 0, 0, 1, 1], [1, 0, 1, 1 ,1], [1, 0, 0, 1, 1]])
-    dummy_mask = dummy_mask.reshape((1,) + dummy_mask.shape)  # Add channel dimension
     print(f"\nDummy mask orig:\n{dummy_mask}")
+    print(f"\nDummy mask orig T:\n{dummy_mask.T}")
     rles = list(get_cells_rle(dummy_mask))
     print(f"\nCells rles from dummy mask: {rles}")
     print(f"\nSingle cells masks reconstruction:")
