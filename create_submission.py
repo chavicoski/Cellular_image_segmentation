@@ -67,7 +67,7 @@ for root, dirs, files in tqdm(os.walk(data_path)):
             # Get the model prediction
             pred_mask = model(image_tensor.to(device))
             # Resize the predicted mask to the target shape
-            resized_pred_mask = resize(np.squeeze(pred_mask.cpu().detach().numpy()), orig_shape) 
+            resized_pred_mask = resize(np.squeeze(pred_mask.cpu().detach().numpy()), (orig_shape[1], orig_shape[0])) 
             # Extract the rle encoding for each cell submask
             cells_rle_masks = get_cells_rle(resized_pred_mask)
             # For each cell rle create a row in the submission file
