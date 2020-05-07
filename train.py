@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import pandas as pd
 import torch
@@ -8,7 +9,7 @@ from torchvision import transforms
 from matplotlib import pyplot as plt
 from lib.data_generators import Cells_dataset
 from lib.utils import *
-from models.my_models import U_net
+from models.my_models import U_net, wide_resnet50_seg
 
 ##########################
 # Check computing device #
@@ -39,16 +40,20 @@ else:
 epochs = 300
 batch_size = 32
 
+# Model architecture
+'''
+The available model architectures are:
+- "u-net"
+- "wide-resnet50"
+'''
+model_name = "wide-resnet50"
+
+# Freeze config ** ONLY FOR wide-resnet50 **
+freeze_epochs = 100  # Number of epochs to train with pretrained weights frozen
+
 # Optimizer config
 optimizer_name = "Adam"  # Options "Adam", "SGD"
 learning_rate = 0.001
-
-# Weight initializer of the model 
-initializer = "he_normal"  # Options "he_normal", "dirac", "xavier_uniform", "xavier_normal"
-
-# Model settings
-use_batchnorm = True
-dropout = 0.0  # Dropout before the upsampling part
 
 # Data loader settings
 data_augmentation = True
@@ -60,9 +65,22 @@ pin_memory = True   # Pin memory for extra speed loading batches in GPU
 # Enable tensorboard
 tensorboard = True
 
+# Weight initializer of the model **ONLY FOR u-net model**
+initializer = "he_normal"  # Options "he_normal", "dirac", "xavier_uniform", "xavier_normal"
+
+# Model settings **ONLY FOR u-net model**
+use_batchnorm = True
+dropout = 0.0  # Dropout before the upsampling part
+
 # Experiment name for saving logs
-exp_name = f"u-net_{optimizer_name}-{learning_rate}_{initializer}_{dropout}-dropout"
-if use_batchnorm: exp_name += "_batchnorm"
+if model_name == "u-net":
+    exp_name = f"{model_name}_{optimizer_name}-{learning_rate}_{initializer}_{dropout}-dropout"
+    if use_batchnorm: exp_name += "_batchnorm"
+elif model_name == "wide-resnet50":
+    exp_name = f"{model_name}_{optimizer_name}-{learning_rate}"
+else:
+    print(f"The model name {model_name} is not valid")
+    sys.exit()
 if data_augmentation: exp_name += "_DA"
 if make_crops: exp_name += "_crops"
 
@@ -81,38 +99,21 @@ train_datagen = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, n
 dev_dataset = Cells_dataset(data_df, "dev")
 dev_datagen = DataLoader(dev_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=pin_memory)
 
-########################
-# Model initialization #
-########################
+##################
+# Model creation #
+##################
 
-# Build the model
-model = U_net(batch_norm=use_batchnorm, dropout=dropout)
-# Initialize the weights
-model.init_weights(initializer)
+if model_name == "u-net":
+    model = U_net(batch_norm=use_batchnorm, dropout=dropout)
+    model.init_weights(initializer)
+elif model_name == "wide-resnet50":
+    model = wide_resnet50_seg()
+    if freeze_epochs > 0:
+        print("\nFreezing the pretrained weights of the model...")
+        model.set_freeze(True)
+
 # Print model architecture
-print(f"\nModel topology:\n{model}")
-
-##################
-# Training phase #
-##################
-
-# Get loss function
-criterion = model.get_criterion()
-# Get optimizer 
-optimizer = model.get_optimizer(opt=optimizer_name, lr=learning_rate)
-print(f"\nGoing to train with {optimizer_name} with lr={learning_rate}")
-
-# Initialization of the variables to store the results
-best_loss = 99999
-best_epoch = -1
-train_losses, train_ious, dev_losses, dev_ious = [], [], [], []
-
-# Scheduler for changing the value of the laearning rate
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=10, verbose=True)
-
-# Set the tensorboard writer
-if tensorboard:
-    tboard_writer = SummaryWriter(comment=exp_name)
+print(f"\n{model_name} model topology:\n{model}")
 
 # Prepare multi-gpu training if enabled
 if multi_gpu and n_gpus > 1 :
@@ -121,6 +122,31 @@ if multi_gpu and n_gpus > 1 :
 
 # Move the model to the computing devices
 model = model.to(device)
+
+##################
+# Training phase #
+##################
+
+if multi_gpu and n_gpus > 1 :
+    criterion = model.module.get_criterion()
+    optimizer = model.module.get_optimizer(opt=optimizer_name, lr=learning_rate)
+else:
+    criterion = model.get_criterion()
+    optimizer = model.get_optimizer(opt=optimizer_name, lr=learning_rate)
+
+print(f"\nGoing to train with {optimizer_name} with lr={learning_rate}")
+
+# Initialization of the variables to store the results
+best_loss = 99999
+best_epoch = -1
+train_losses, train_ious, dev_losses, dev_ious = [], [], [], []
+
+# Scheduler for changing the value of the laearning rate
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=20, verbose=True)
+
+# Set the tensorboard writer
+if tensorboard:
+    tboard_writer = SummaryWriter(comment=exp_name)
 
 # Print training header
 print("\n############################\n"\
@@ -133,6 +159,15 @@ for epoch in range(epochs):
     stdout.write(f"Epoch {epoch}: ") 
     if best_epoch > -1 : stdout.write(f"current best loss = {best_loss:.5f}, at epoch {best_epoch}\n")
     else: stdout.write("\n")
+    # Check if we have to unfreeze the weights
+    if model_name == "wide-resnet50" and epoch == freeze_epochs:
+        print("Unfreezing the pretrained weights of the model...")
+        if multi_gpu and n_gpus > 1 : model.module.set_freeze(False)
+        else: model.set_freeze(False)
+        # Reset learning rate
+        for group in optimizer.param_groups:
+            group['lr'] = learning_rate
+
     # Train split
     train_loss, train_iou = train(train_datagen, model, criterion, optimizer, device, pin_memory)
     # Development split 
@@ -166,7 +201,9 @@ for epoch in range(epochs):
 
 # Add tensorboard entry with the experiment result
 if tensorboard:
-	tboard_writer.add_hparams({"optimizer": optimizer_name,
+	tboard_writer.add_hparams({
+                    "model": model_name,
+                    "optimizer": optimizer_name,
                     "lr": learning_rate,
                     "initializer": initializer,
                     "batch_norm": use_batchnorm,

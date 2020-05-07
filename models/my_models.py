@@ -1,10 +1,15 @@
 import torch
+from torchvision.models import wide_resnet50_2
 from torch import nn
 from torch.nn.init import xavier_uniform_, xavier_normal_, dirac_, constant_
 
-#####################
-# Auxiliary modules #
-#####################
+#########
+# U-NET #
+#########
+
+###########################
+# U-net auxiliary modules #
+###########################
 
 class Conv_block(nn.Module):
     '''
@@ -84,9 +89,9 @@ class Out_block(nn.Module):
         out = self.act(x)
         return out
 
-#########
-# U-net #
-#########
+#####################
+# U-net main module #
+#####################
 
 class U_net(nn.Module):
     '''
@@ -163,9 +168,89 @@ class U_net(nn.Module):
         self.apply(weight_initializer)
 
 
+######################################
+# SEGNET WITH PRETRAINED WIDE_RESNET #
+######################################
+
+class aux_up_block(nn.Module):
+    '''
+    Basic convolutional block for the upsampling part of the
+    wide-resnet50 for segmentation
+    '''
+    def __init__(self, in_channels):
+        super(aux_up_block, self).__init__()
+        self.layers = nn.Sequential(
+            nn.ConvTranspose2d(in_channels, in_channels//2, kernel_size=2, stride=2),
+            nn.BatchNorm2d(in_channels//2),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        return self.layers(x)
 
 
-        
+class squeeze_block(nn.Module):
+    '''
+    Convolutional block to reduce the number of channels
+    '''
+    def __init__(self, in_channels, out_channels):
+        super(squeeze_block, self).__init__()
+        self.layers = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        return self.layers(x)
 
 
+class wide_resnet50_seg(nn.Module):
+    def __init__(self, out_channels=1):
+        super(wide_resnet50_seg, self).__init__()
+        pretrained_wide_resnet50 = wide_resnet50_2(pretrained=True)
+        self.resnet = nn.Sequential(*list(pretrained_wide_resnet50.children())[:-4])
+        self.upnet = nn.Sequential(
+            aux_up_block(512),
+            aux_up_block(256),
+            aux_up_block(128),
+            squeeze_block(64, out_channels)
+        )
+
+        if out_channels == 1:
+            self.act = nn.Sigmoid()
+        else:
+            self.act = nn.Softmax2d()
+
+    def forward(self, x):
+        encoded_x = self.resnet(x)
+        mask = self.upnet(encoded_x)
+        return self.act(mask)
+
+    def set_freeze(self, flag):
+        '''
+        set the freeze for the weights of the pretrained wide-resnet50
+        '''
+        for child in self.resnet.children():
+            for param in child.parameters():
+                param.requires_grad = not flag
+
+    def get_criterion(self):
+        # This loss combines sigmoid layer with BCELoss for better numerical stability
+        return nn.BCEWithLogitsLoss()
+
+    def get_optimizer(self, opt="Adam", lr=0.0002):
+        if opt == "Adam":
+            return torch.optim.Adam(self.parameters(), lr=lr)
+        elif opt == "SGD":
+            return torch.optim.SGD(self.parameters(), lr=lr, momentum=0.9)
+
+   
+
+if __name__ == "__main__":
+    model = wide_resnet50_seg()
+    dummy_input = torch.zeros((16, 3, 256, 256))
+    output = model(dummy_input)
+    print(model)
+    print(output.shape)
 
