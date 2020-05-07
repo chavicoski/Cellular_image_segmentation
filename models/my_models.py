@@ -292,11 +292,115 @@ class wide_resnet101_seg(nn.Module):
             return torch.optim.SGD(self.parameters(), lr=lr, momentum=0.9)
 
 
+#############################################################
+# SEGNET WITH PRETRAINED WIDE_RESNET50 AND SKIP CONNECTIONS #
+#############################################################
+
+class up_block_skip(nn.Module):
+    '''
+    Basic convolutional block for the upsampling part of the
+    wide-resnet for segmentation with skip connections
+    '''
+    def __init__(self, in_channels, skip_channels):
+        super(up_block_skip, self).__init__()
+        self.up_layers = nn.Sequential(
+            nn.ConvTranspose2d(in_channels, in_channels//2, kernel_size=2, stride=2),
+            nn.BatchNorm2d(in_channels//2),
+            nn.ReLU(inplace=True)
+        )
+        self.conv_block = nn.Sequential(
+            nn.Conv2d((in_channels//2)+skip_channels, ((in_channels//2)+skip_channels)//2, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(((in_channels//2)+skip_channels)//2),
+            nn.ReLU(inplace=True)
+        )    
+
+    def forward(self, x, x_skip):
+        x = self.up_layers(x)
+        x_cat = torch.cat([x, x_skip], dim=1)
+        return self.conv_block(x_cat)
+
+
+class wide_resnet50_seg_skip(nn.Module):
+    def __init__(self, out_channels=1):
+        super(wide_resnet50_seg_skip, self).__init__()
+
+        pretrained_wide_resnet50 = wide_resnet50_2(pretrained=True)
+        # Get the list of modules of the net
+        wide_resnet50_modules = list(pretrained_wide_resnet50.children())
+
+        # Take the first conv block
+        self.conv1 = wide_resnet50_modules[0]
+        self.bn1 = wide_resnet50_modules[1]
+        self.relu1 = wide_resnet50_modules[2]
+        self.maxpool1 = wide_resnet50_modules[3]
+        # To correct the size of the tensor to concatenate it before the last conv block
+        self.skip_correction = nn.ConvTranspose2d(64, 64, kernel_size=2, stride=2)
+        # Get the bottleneck blocks from the submodules
+        bottleneck_chain = list(wide_resnet50_modules[4].children())
+        self.bottleneck1 = bottleneck_chain[0]
+        self.bottleneck2 = bottleneck_chain[1]
+        self.bottleneck3 = bottleneck_chain[2]
+        # Get the bottleneck blocks from the submodules
+        bottleneck_chain = list(wide_resnet50_modules[5].children())
+        self.bottleneck4 = bottleneck_chain[0]
+        self.bottleneck5 = bottleneck_chain[1]
+        self.bottleneck6 = bottleneck_chain[2]
+        self.bottleneck7 = bottleneck_chain[3]
+        # Create the upsampling blocks
+        self.up_block1 = up_block_skip(512, 256)
+        self.up_block2 = up_block_skip(256, 64)
+        self.up_block3 = up_block_skip(96, 64)
+        # Create the block to reduce channels
+        self.squeeze_block = squeeze_block(56, out_channels)
+        # Create the output activation function
+        if out_channels == 1:
+            self.act = nn.Sigmoid()
+        else:
+            self.act = nn.Softmax2d()
+
+    def forward(self, x):
+        x1 = self.conv1(x)
+        x2 = self.bn1(x1)
+        x3 = self.relu1(x2)
+        x_skip = self.skip_correction(x3)
+        x4 = self.maxpool1(x3)
+        x5 = self.bottleneck1(x4)
+        x6 = self.bottleneck2(x5)
+        x7 = self.bottleneck3(x6)
+        x8 = self.bottleneck4(x7)
+        x9 = self.bottleneck5(x8)
+        x10 = self.bottleneck6(x9)
+        x11 = self.bottleneck6(x10)
+        x12 = self.up_block1(x11, x7)
+        x13 = self.up_block2(x12, x3)
+        x14 = self.up_block3(x13, x_skip)
+        x15 = self.squeeze_block(x14)
+        return self.act(x15)
+
+    def set_freeze(self, flag):
+        '''
+        set the freeze for the weights of the pretrained wide-resnet50
+        '''
+        for name, param in self.named_parameters():
+            if not name.startswith("skip") and not name.startswith("up") and not name.startswith("squeeze"):
+                param.requires_grad = not flag
+
+    def get_criterion(self):
+        # This loss combines sigmoid layer with BCELoss for better numerical stability
+        return nn.BCEWithLogitsLoss()
+
+    def get_optimizer(self, opt="Adam", lr=0.0002):
+        if opt == "Adam":
+            return torch.optim.Adam(self.parameters(), lr=lr)
+        elif opt == "SGD":
+            return torch.optim.SGD(self.parameters(), lr=lr, momentum=0.9)
+
 
 if __name__ == "__main__":
-    model = wide_resnet50_seg()
+    model = wide_resnet50_seg_skip()
     dummy_input = torch.zeros((16, 3, 256, 256))
     output = model(dummy_input)
     print(model)
     print(output.shape)
+    model.set_freeze(True)
 

@@ -9,7 +9,7 @@ from torchvision import transforms
 from matplotlib import pyplot as plt
 from lib.data_generators import Cells_dataset
 from lib.utils import *
-from models.my_models import U_net, wide_resnet50_seg, wide_resnet101_seg
+from models.my_models import U_net, wide_resnet50_seg, wide_resnet50_seg_skip, wide_resnet101_seg
 
 ##########################
 # Check computing device #
@@ -45,11 +45,12 @@ batch_size = 32
 The available model architectures are:
 - "u-net"
 - "wide-resnet50"
+- "wide-resnet50-skip"
 - "wide-resnet101"
 '''
-model_name = "wide-resnet101"
+model_name = "wide-resnet50-skip"
 
-# Freeze config ** ONLY FOR wide-resnet50 and wide-resnet101 **
+# Freeze config ** ONLY FOR resnet models **
 freeze_epochs = 100  # Number of epochs to train with pretrained weights frozen
 
 # Optimizer config
@@ -57,11 +58,12 @@ optimizer_name = "Adam"  # Options "Adam", "SGD"
 learning_rate = 0.001
 
 # Data loader settings
-data_augmentation = True
-make_crops = True   # For making random crops after the data agumentation
-num_workers = 2     # Processes for loading data in parallel
-multi_gpu = True    # Enables multi-gpu training if it is possible
-pin_memory = True   # Pin memory for extra speed loading batches in GPU
+data_augmentation = True    # To enable the basic data agumentation and the following features
+elastic_transform = True    # For making elastic transformations before the data augmentation
+make_crops = False          # For making random crops after the data agumentation
+num_workers = 2             # Processes for loading data in parallel
+multi_gpu = True            # Enables multi-gpu training if it is possible
+pin_memory = True           # Pin memory for extra speed loading batches in GPU
 
 # Enable tensorboard
 tensorboard = True
@@ -84,6 +86,7 @@ else:
     sys.exit()
 if data_augmentation: exp_name += "_DA"
 if make_crops: exp_name += "_crops"
+if elastic_transform: exp_name += "_elastic"
 
 print(f"\nGoing to run experiment {exp_name}")
 
@@ -94,7 +97,7 @@ print(f"\nGoing to run experiment {exp_name}")
 # Load dataset info
 data_df = pd.read_csv("../dataset/data_partition.csv")
 # Create train datagen
-train_dataset = Cells_dataset(data_df, "train", data_augmentation=data_augmentation, make_crops=make_crops)
+train_dataset = Cells_dataset(data_df, "train", data_augmentation=data_augmentation, make_crops=make_crops, elastic_transform=elastic_transform)
 train_datagen = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=pin_memory)
 # Create develoment datagen
 dev_dataset = Cells_dataset(data_df, "dev")
@@ -110,6 +113,8 @@ if model_name == "u-net":
 elif model_name.startswith("wide-resnet"):
     if model_name == "wide-resnet50":
         model = wide_resnet50_seg()
+    if model_name == "wide-resnet50-skip":
+        model = wide_resnet50_seg_skip()
     elif model_name == "wide-resnet101":
         model = wide_resnet101_seg()
     if freeze_epochs > 0:
@@ -213,7 +218,8 @@ if tensorboard:
                     "batch_norm": use_batchnorm,
                     "dropout": dropout,
                     "data_augmentation": data_augmentation,
-                    "crops": make_crops},
+                    "crops": make_crops,
+                    "elastic_transform": elastic_transform},
                     {"hparam/loss": best_loss, "hparam/iou": dev_ious[best_epoch], "hparam/best_epoch": best_epoch})
 
 # Close the tensorboard writer

@@ -1,6 +1,8 @@
 import torch
+import numpy as np
 from torchvision.transforms import functional as transformsF
 from random import random, randint, uniform
+from imgaug import augmenters as iaa
 
 class Cells_dataset(torch.utils.data.Dataset):
     '''
@@ -15,15 +17,18 @@ class Cells_dataset(torch.utils.data.Dataset):
                 - MaskPath -> path to mask output tensor
 
         partition -> Select the dataset partition of the generator. Can be "train" or "dev"
-	data_augmentation -> Flag to enable data augmentation
+        data_augmentation -> Flag to enable data augmentation
+        make_crops -> to enable random crops and then resizing after data augmentation
+        elastic_transform -> to enable elastic transformations before the data agumentation
     '''
-    def __init__(self, data_df, partition="train", data_augmentation=False, make_crops=False):
+    def __init__(self, data_df, partition="train", data_augmentation=False, make_crops=False, elastic_transform=False):
         
         self.partition = partition
         # Store the samples from the selected partition
         self.df = data_df[data_df["Partition"]==partition]
         self.data_augmentation = data_augmentation
         self.make_crops = make_crops
+        self.use_elastic_transform = elastic_transform
 
     '''
     Returns the number of samples in the dataset
@@ -54,6 +59,22 @@ class Cells_dataset(torch.utils.data.Dataset):
     def apply_data_augmentation(self, x_tensor, y_tensor):
 
         c, h, w = x_tensor.shape
+
+        if self.use_elastic_transform:
+            seed = randint(0, 10000)
+            # From channel first to channel last
+            x_tensor = np.einsum("kij->ijk", x_tensor.numpy())
+            y_tensor = np.einsum("kij->ijk", y_tensor.numpy())
+            # Apply the elastic transformation
+            elastic_transformation = iaa.ElasticTransformation(alpha=30, sigma=5, mode="nearest", seed=seed).to_deterministic()
+            x_tensor = elastic_transformation.augment_image(x_tensor) 
+            y_tensor = elastic_transformation.augment_image(y_tensor)
+            # From channel last to channel first
+            x_tensor = np.einsum("ijk->kij", x_tensor)
+            y_tensor = np.einsum("ijk->kij", y_tensor)
+            # Convert to pytorch tensor again
+            x_tensor = torch.from_numpy(x_tensor)
+            y_tensor = torch.from_numpy(y_tensor)
 
         # From pytorch tensor to PIL image (to apply transforms)
         x_image = transformsF.to_pil_image(x_tensor)
@@ -110,7 +131,7 @@ if __name__ == "__main__":
     print("TEST DATA GENERATOR")
 
     data_df = pd.read_csv("../dataset/data_partition.csv")
-    dataset = Cells_dataset(data_df, "train", data_augmentation=True, make_crops=True)
+    dataset = Cells_dataset(data_df, "train", data_augmentation=True, elastic_transform=True)
     dataloader = DataLoader(dataset, batch_size = 8)
     batch = next(iter(dataloader))
      
