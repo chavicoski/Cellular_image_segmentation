@@ -9,7 +9,7 @@ from torchvision import transforms
 from matplotlib import pyplot as plt
 from lib.data_generators import Cells_dataset
 from lib.utils import *
-from models.my_models import U_net, wide_resnet50_seg
+from models.my_models import U_net, wide_resnet50_seg, wide_resnet101_seg
 
 ##########################
 # Check computing device #
@@ -45,10 +45,11 @@ batch_size = 32
 The available model architectures are:
 - "u-net"
 - "wide-resnet50"
+- "wide-resnet101"
 '''
-model_name = "wide-resnet50"
+model_name = "wide-resnet101"
 
-# Freeze config ** ONLY FOR wide-resnet50 **
+# Freeze config ** ONLY FOR wide-resnet50 and wide-resnet101 **
 freeze_epochs = 100  # Number of epochs to train with pretrained weights frozen
 
 # Optimizer config
@@ -76,7 +77,7 @@ dropout = 0.0  # Dropout before the upsampling part
 if model_name == "u-net":
     exp_name = f"{model_name}_{optimizer_name}-{learning_rate}_{initializer}_{dropout}-dropout"
     if use_batchnorm: exp_name += "_batchnorm"
-elif model_name == "wide-resnet50":
+elif model_name.startswith("wide-resnet"):
     exp_name = f"{model_name}_{optimizer_name}-{learning_rate}"
 else:
     print(f"The model name {model_name} is not valid")
@@ -106,8 +107,11 @@ dev_datagen = DataLoader(dev_dataset, batch_size=batch_size, shuffle=True, num_w
 if model_name == "u-net":
     model = U_net(batch_norm=use_batchnorm, dropout=dropout)
     model.init_weights(initializer)
-elif model_name == "wide-resnet50":
-    model = wide_resnet50_seg()
+elif model_name.startswith("wide-resnet"):
+    if model_name == "wide-resnet50":
+        model = wide_resnet50_seg()
+    elif model_name == "wide-resnet101":
+        model = wide_resnet101_seg()
     if freeze_epochs > 0:
         print("\nFreezing the pretrained weights of the model...")
         model.set_freeze(True)
@@ -160,7 +164,7 @@ for epoch in range(epochs):
     if best_epoch > -1 : stdout.write(f"current best loss = {best_loss:.5f}, at epoch {best_epoch}\n")
     else: stdout.write("\n")
     # Check if we have to unfreeze the weights
-    if model_name == "wide-resnet50" and epoch == freeze_epochs:
+    if model_name.startswith("wide-resnet") and epoch == freeze_epochs:
         print("Unfreezing the pretrained weights of the model...")
         if multi_gpu and n_gpus > 1 : model.module.set_freeze(False)
         else: model.set_freeze(False)

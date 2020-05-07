@@ -1,5 +1,5 @@
 import torch
-from torchvision.models import wide_resnet50_2
+from torchvision.models import wide_resnet50_2, wide_resnet101_2
 from torch import nn
 from torch.nn.init import xavier_uniform_, xavier_normal_, dirac_, constant_
 
@@ -168,14 +168,14 @@ class U_net(nn.Module):
         self.apply(weight_initializer)
 
 
-######################################
-# SEGNET WITH PRETRAINED WIDE_RESNET #
-######################################
+########################################
+# SEGNET WITH PRETRAINED WIDE_RESNET50 #
+########################################
 
 class aux_up_block(nn.Module):
     '''
     Basic convolutional block for the upsampling part of the
-    wide-resnet50 for segmentation
+    wide-resnet for segmentation
     '''
     def __init__(self, in_channels):
         super(aux_up_block, self).__init__()
@@ -245,7 +245,53 @@ class wide_resnet50_seg(nn.Module):
         elif opt == "SGD":
             return torch.optim.SGD(self.parameters(), lr=lr, momentum=0.9)
 
-   
+
+#########################################
+# SEGNET WITH PRETRAINED WIDE_RESNET101 #
+#########################################
+
+
+class wide_resnet101_seg(nn.Module):
+    def __init__(self, out_channels=1):
+        super(wide_resnet101_seg, self).__init__()
+        pretrained_wide_resnet101 = wide_resnet101_2(pretrained=True)
+        self.resnet = nn.Sequential(*list(pretrained_wide_resnet101.children())[:-4])
+        self.upnet = nn.Sequential(
+            aux_up_block(512),
+            aux_up_block(256),
+            aux_up_block(128),
+            squeeze_block(64, out_channels)
+        )
+
+        if out_channels == 1:
+            self.act = nn.Sigmoid()
+        else:
+            self.act = nn.Softmax2d()
+
+    def forward(self, x):
+        encoded_x = self.resnet(x)
+        mask = self.upnet(encoded_x)
+        return self.act(mask)
+
+    def set_freeze(self, flag):
+        '''
+        set the freeze for the weights of the pretrained wide-resnet101
+        '''
+        for child in self.resnet.children():
+            for param in child.parameters():
+                param.requires_grad = not flag
+
+    def get_criterion(self):
+        # This loss combines sigmoid layer with BCELoss for better numerical stability
+        return nn.BCEWithLogitsLoss()
+
+    def get_optimizer(self, opt="Adam", lr=0.0002):
+        if opt == "Adam":
+            return torch.optim.Adam(self.parameters(), lr=lr)
+        elif opt == "SGD":
+            return torch.optim.SGD(self.parameters(), lr=lr, momentum=0.9)
+
+
 
 if __name__ == "__main__":
     model = wide_resnet50_seg()
