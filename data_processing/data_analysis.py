@@ -1,3 +1,5 @@
+import sys
+sys.path.insert(1, '.')
 import os
 import torch
 from torchvision import transforms
@@ -6,6 +8,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from matplotlib import pyplot as plt
+from lib.utils import save_images_batch
 
 # Data paths
 dataset_path = "../dataset"
@@ -58,3 +61,24 @@ plt.ylabel("Count")
 plt.title(f"Count of max and min pixels for each sample")
 plt.savefig(f"plots/pixels_values_count.png")
 plt.clf()  # Reset figure for next plot
+
+# Print some images
+path_to_images = "../dataset/train"
+images_to_print = 8
+target_size = (256, 256)
+tensor_transform = transforms.Compose([transforms.Resize(target_size, Image.BICUBIC), transforms.ToTensor()])
+images_batch = None
+plot_save_path = "plots/sample_images.png"
+
+for image_id in tqdm(df["ImageId"].unique()[:images_to_print]):
+    img = Image.open(os.path.join(path_to_images, image_id, f"images/{image_id}.png")).convert("RGB")
+    img_tensor = tensor_transform(img)
+    img_tensor = img_tensor.view((1,) + img_tensor.size())
+    if images_batch == None:
+        images_batch = img_tensor
+    else:
+        images_batch = torch.cat((images_batch, img_tensor))
+
+# Create the png with a grid of images
+print(f"Saving images png in {plot_save_path}")
+save_images_batch(images_batch, plot_save_path)
