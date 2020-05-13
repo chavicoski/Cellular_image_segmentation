@@ -131,17 +131,21 @@ if __name__ == "__main__":
     print("TEST DATA GENERATOR")
 
     data_df = pd.read_csv("../dataset/data_partition.csv")
-    dataset = Cells_dataset(data_df, "train", data_augmentation=True, elastic_transform=True)
+    dataset = Cells_dataset(data_df, "train", data_augmentation=True, elastic_transform=False)
     dataloader = DataLoader(dataset, batch_size = 8)
     batch = next(iter(dataloader))
      
     images_grid = make_grid(batch["image"], nrow=4)
     masks_grid = make_grid(batch["mask"], nrow=4)
 
-    plt.imshow(images_grid.permute(1, 2, 0))
+    fig = plt.imshow(images_grid.permute(1, 2, 0))
+    fig.axes.get_xaxis().set_visible(False)
+    fig.axes.get_yaxis().set_visible(False)
     plt.savefig("plots/test_dataloader_images.png")
     plt.clf()
 
-    plt.imshow(masks_grid.permute(1, 2, 0))
+    fig = plt.imshow(masks_grid.permute(1, 2, 0))
+    fig.axes.get_xaxis().set_visible(False)
+    fig.axes.get_yaxis().set_visible(False)
     plt.savefig("plots/test_dataloader_masks.png")
     
