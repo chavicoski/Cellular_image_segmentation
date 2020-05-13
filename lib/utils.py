@@ -18,11 +18,13 @@ Params:
 '''
 def save_images_batch(images, save_as=""):
     images_grid = make_grid(images, nrow=int(ceil(images.shape[0] / 4)))
-    plt.imshow(images_grid.permute(1, 2, 0))
+    fig = plt.imshow(images_grid.permute(1, 2, 0))
+    fig.axes.get_xaxis().set_visible(False)
+    fig.axes.get_yaxis().set_visible(False)
     if save_as == "":
-        plt.savefig("plots/images_batch.png")
+        plt.savefig("plots/images_batch.png", pad_inches=0)
     else:
-        plt.savefig(save_as)
+        plt.savefig(save_as, pad_inches=0)
 
 '''
 Returns the rle encoding of the image.
